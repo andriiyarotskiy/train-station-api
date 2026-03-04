@@ -5,10 +5,6 @@ from django.db.models.constraints import UniqueConstraint
 from station_configs.settings import base as settings
 
 
-class User(AbstractUser):
-    pass
-
-
 class Station(models.Model):
     name = models.CharField(max_length=255)
     latitude = models.FloatField()
