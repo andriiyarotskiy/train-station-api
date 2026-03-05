@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.constraints import UniqueConstraint
 
@@ -22,6 +23,34 @@ class Route(models.Model):
         Station, on_delete=models.CASCADE, related_name="routes_to"
     )
     distance = models.IntegerField()
+
+    @staticmethod
+    def validate_route(source_id, destination_id, station, error_to_raise):
+        if source_id == destination_id:
+            station_name = getattr(station, "name")
+            raise error_to_raise(
+                {
+                    "non_field_errors": f'The destination route "{station_name}" '
+                    f"cannot be the same as the source "
+                    f'"{station_name}"'
+                }
+            )
+
+    def clean(self):
+        Route.validate_route(
+            self.source.id, self.destination.id, self.source, ValidationError
+        )
+
+    def save(
+        self,
+        *args,
+        force_insert=False,
+        force_update=False,
+        using=None,
+        update_fields=None,
+    ):
+        self.full_clean()
+        return super().save(force_insert, force_update, using, update_fields)
 
     def __str__(self):
         return f"{self.source.name} - {self.destination.name} ({self.distance}km)"
@@ -52,6 +81,10 @@ class Train(models.Model):
     train_type = models.ForeignKey(
         TrainType, on_delete=models.CASCADE, related_name="trains"
     )
+
+    @property
+    def capacity(self):
+        return self.cargo_num * self.places_in_cargo
 
     def __str__(self):
         return self.name
