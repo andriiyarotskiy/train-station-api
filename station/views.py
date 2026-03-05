@@ -1,6 +1,6 @@
 from rest_framework import viewsets
 
-from station.models import TrainType, Train, Station, Route, Crew, Order
+from station.models import TrainType, Train, Station, Route, Crew, Order, Trip
 from station.serializers import (
     TrainTypeSerializer,
     TrainSerializer,
@@ -9,6 +9,10 @@ from station.serializers import (
     RouteSerializer,
     CrewSerializer,
     OrderSerializer,
+    TripSerializer,
+    TripListSerializer,
+    TripDetailSerializer,
+    TrainDetailSerializer,
 )
 
 
@@ -24,6 +28,8 @@ class TrainViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == "list":
             return TrainListSerializer
+        elif self.action == "retrieve":
+            return TrainDetailSerializer
         return TrainSerializer
 
     def get_queryset(self):
@@ -43,6 +49,25 @@ class RouteViewSet(viewsets.ModelViewSet):
 class CrewViewSet(viewsets.ModelViewSet):
     queryset = Crew.objects.all()
     serializer_class = CrewSerializer
+
+
+class TripViewSet(viewsets.ModelViewSet):
+    serializer_class = TripSerializer
+    queryset = Trip.objects.select_related(
+        "train__train_type", "route__source", "route__destination"
+    ).prefetch_related("crews")
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return TripListSerializer
+        elif self.action == "retrieve":
+            return TripDetailSerializer
+        return self.serializer_class
+
+    def get_queryset(self):
+        queryset = self.queryset
+
+        return queryset
 
 
 class OrderViewSet(viewsets.ModelViewSet):

@@ -72,6 +72,25 @@ class TrainSerializer(serializers.ModelSerializer):
         )
 
 
+class TrainDetailSerializer(serializers.HyperlinkedModelSerializer):
+    train_type = serializers.CharField(source="train_type.name", read_only=True)
+
+    class Meta:
+        model = Train
+        fields = (
+            "id",
+            "name",
+            "cargo_num",
+            "places_in_cargo",
+            "capacity",
+            "train_type",
+            "url",
+        )
+        extra_kwargs = {
+            "url": {"view_name": "station:train-detail", "lookup_field": "pk"}
+        }
+
+
 class TrainListSerializer(TrainSerializer):
     train_type = serializers.CharField(source="train_type.name", read_only=True)
 
@@ -79,10 +98,38 @@ class TrainListSerializer(TrainSerializer):
 class CrewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Crew
-        fields = ("id", "first_name", "last_name")
+        fields = ("id", "first_name", "last_name", "full_name")
 
 
 class TripSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Trip
+        fields = ("id", "departure_time", "arrival_time", "route", "train", "crews")
+
+
+class TripListSerializer(TripSerializer):
+    route = serializers.StringRelatedField(read_only=True)
+    train = TrainDetailSerializer(read_only=True)
+    crews = serializers.SlugRelatedField(
+        many=True,
+        read_only=True,
+        slug_field="full_name",
+    )
+
+    class Meta:
+        model = Trip
+        fields = ("id", "departure_time", "arrival_time", "route", "train", "crews")
+
+
+class TripDetailSerializer(serializers.ModelSerializer):
+    route = RouteSerializer(read_only=True)
+    train = TrainListSerializer(read_only=True)
+    crews = serializers.SlugRelatedField(
+        many=True,
+        read_only=True,
+        slug_field="full_name",
+    )
+
     class Meta:
         model = Trip
         fields = ("id", "departure_time", "arrival_time", "route", "train", "crews")
@@ -92,3 +139,7 @@ class TicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ticket
         fields = ("id", "cargo", "seat", "trip", "order")
+
+
+class TicketListSerializer(TicketSerializer):
+    trip = TripListSerializer(many=False, read_only=True)

@@ -8,6 +8,7 @@ from station.views import (
     RouteViewSet,
     CrewViewSet,
     OrderViewSet,
+    TripViewSet,
 )
 
 router = routers.DefaultRouter()
@@ -17,6 +18,7 @@ router.register(r"stations", StationViewSet)
 router.register(r"routes", RouteViewSet)
 router.register(r"crews", CrewViewSet)
 router.register(r"orders", OrderViewSet)
+router.register(r"trips", TripViewSet)
 
 app_name = "station"
 
