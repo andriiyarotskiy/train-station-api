@@ -1,7 +1,9 @@
 from django.db.models import Count, F
+from django_filters.rest_framework import DjangoFilterBackend, FilterSet
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 
+from station.filters import RouteFilter
 from station.models import TrainType, Train, Station, Route, Crew, Order, Trip
 from station.serializers import (
     TrainTypeSerializer,
@@ -45,8 +47,10 @@ class StationViewSet(viewsets.ModelViewSet):
 
 
 class RouteViewSet(viewsets.ModelViewSet):
-    queryset = Route.objects.all()
+    queryset = Route.objects.select_related("source", "destination")
     serializer_class = RouteSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = RouteFilter
 
 
 class CrewViewSet(viewsets.ModelViewSet):
@@ -100,7 +104,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             qs = qs.filter(user=self.request.user)
 
         if self.action in ("list", "retrieve"):
-            qs = Order.objects.prefetch_related(
+            qs = qs.prefetch_related(
                 "tickets__trip__train",
                 "tickets__trip__route",
             )

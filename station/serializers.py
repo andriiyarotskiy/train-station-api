@@ -182,10 +182,15 @@ class TicketListSerializer(TicketSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     tickets = TicketSerializer(many=True, read_only=False, allow_empty=False)
+    username = serializers.SlugRelatedField(
+        source="user",
+        slug_field="username",
+        read_only=True,
+    )
 
     class Meta:
         model = Order
-        fields = ("id", "created_at", "tickets")
+        fields = ("id", "created_at", "username", "tickets")
 
     @transaction.atomic
     def create(self, validated_data):
