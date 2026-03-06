@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -45,12 +46,6 @@ class RouteSerializer(serializers.ModelSerializer):
             "destination_id",
             "distance",
         )
-
-
-class OrderSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Order
-        fields = ("id", "created_at", "user")
 
 
 class TrainTypeSerializer(serializers.ModelSerializer):
@@ -102,6 +97,14 @@ class CrewSerializer(serializers.ModelSerializer):
 
 
 class TripSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        validated_data = super().validate(attrs)
+        if attrs["departure_time"] > attrs["arrival_time"]:
+            raise ValidationError(
+                {"departure_time": "Departure time must be before arrival time."}
+            )
+        return validated_data
+
     class Meta:
         model = Trip
         fields = ("id", "departure_time", "arrival_time", "route", "train", "crews")
@@ -110,15 +113,36 @@ class TripSerializer(serializers.ModelSerializer):
 class TripListSerializer(TripSerializer):
     route = serializers.StringRelatedField(read_only=True)
     train = TrainDetailSerializer(read_only=True)
-    crews = serializers.SlugRelatedField(
-        many=True,
-        read_only=True,
-        slug_field="full_name",
-    )
+    tickets_available = serializers.CharField(read_only=True)
 
     class Meta:
         model = Trip
-        fields = ("id", "departure_time", "arrival_time", "route", "train", "crews")
+        fields = (
+            "id",
+            "departure_time",
+            "arrival_time",
+            "route",
+            "train",
+            "tickets_available",
+        )
+
+
+class TicketSerializer(serializers.ModelSerializer):
+
+    def validate(self, attrs):
+        data = super().validate(attrs=attrs)
+
+        return data
+
+    class Meta:
+        model = Ticket
+        fields = ("id", "cargo", "seat", "trip")
+
+
+class TicketSeatsSerializer(TicketSerializer):
+    class Meta:
+        model = Ticket
+        fields = ("cargo", "seat")
 
 
 class TripDetailSerializer(serializers.ModelSerializer):
@@ -130,16 +154,68 @@ class TripDetailSerializer(serializers.ModelSerializer):
         slug_field="full_name",
     )
 
+    # Another approach is to simply show the number of seats occupied
+    # def to_representation(self, instance):
+    #     representation = super().to_representation(instance)
+    #     representation["taken_places"] = instance.tickets.count()
+    #
+    #     return representation
+
+    taken_places = TicketSeatsSerializer(read_only=True, many=True, source="tickets")
+
     class Meta:
         model = Trip
-        fields = ("id", "departure_time", "arrival_time", "route", "train", "crews")
-
-
-class TicketSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Ticket
-        fields = ("id", "cargo", "seat", "trip", "order")
+        fields = (
+            "id",
+            "departure_time",
+            "arrival_time",
+            "route",
+            "train",
+            "crews",
+            "taken_places",
+        )
 
 
 class TicketListSerializer(TicketSerializer):
     trip = TripListSerializer(many=False, read_only=True)
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    tickets = TicketSerializer(many=True, read_only=False, allow_empty=False)
+
+    class Meta:
+        model = Order
+        fields = ("id", "created_at", "tickets")
+
+    @transaction.atomic
+    def create(self, validated_data):
+        tickets = validated_data.pop("tickets")
+        order = Order.objects.create(**validated_data)
+        for ticket in tickets:
+            Ticket.objects.create(order=order, **ticket)
+        return order
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        tickets_data = validated_data.pop("tickets")
+        instance.tickets.all().delete()
+
+        for ticket in tickets_data:
+            Ticket.objects.create(order=instance, **ticket)
+        instance.save()
+        return instance
+
+
+class OrderListSerializer(OrderSerializer):
+    tickets = TicketListSerializer(many=True, read_only=True)
+
+
+# {
+#     "tickets": [
+#         {
+#             "cargo": 1,
+#             "seat": 1,
+#             "trip": 1
+#         }
+#     ]
+# }
