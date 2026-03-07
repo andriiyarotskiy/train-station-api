@@ -131,7 +131,12 @@ class TicketSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         data = super().validate(attrs=attrs)
-
+        Ticket.validate_ticket(
+            attrs["cargo"],
+            attrs["seat"],
+            attrs["trip"].train,
+            ValidationError,
+        )
         return data
 
     class Meta:
@@ -213,14 +218,3 @@ class OrderSerializer(serializers.ModelSerializer):
 
 class OrderListSerializer(OrderSerializer):
     tickets = TicketListSerializer(many=True, read_only=True)
-
-
-# {
-#     "tickets": [
-#         {
-#             "cargo": 1,
-#             "seat": 1,
-#             "trip": 1
-#         }
-#     ]
-# }
