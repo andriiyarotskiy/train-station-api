@@ -82,7 +82,6 @@ Create a `.env` file in the project root:
 
 ```env
 SECRET_KEY=your-secret-key-here
-DJANGO_SETTINGS_MODULE=station_configs.settings.base
 ```
 
 ---

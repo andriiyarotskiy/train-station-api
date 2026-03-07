@@ -1,7 +1,9 @@
 from django.db.models import Count, F
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet
-from rest_framework import viewsets
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
 
 from station.filters import RouteFilter
 from station.models import TrainType, Train, Station, Route, Crew, Order, Trip
@@ -18,6 +20,7 @@ from station.serializers import (
     TripDetailSerializer,
     TrainDetailSerializer,
     OrderListSerializer,
+    StationImageSerializer,
 )
 
 
@@ -44,6 +47,19 @@ class TrainViewSet(viewsets.ModelViewSet):
 class StationViewSet(viewsets.ModelViewSet):
     queryset = Station.objects.all()
     serializer_class = StationSerializer
+
+    def get_serializer_class(self):
+        if self.action == "upload_image":
+            return StationImageSerializer
+        return StationSerializer
+
+    @action(detail=True, methods=["post"], url_path="upload-image")
+    def upload_image(self, request, pk=None):
+        station = self.get_object()
+        serializer = self.get_serializer(station, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class RouteViewSet(viewsets.ModelViewSet):

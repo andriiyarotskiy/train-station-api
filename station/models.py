@@ -1,15 +1,25 @@
-from django.contrib.auth.models import AbstractUser
+import pathlib
+import uuid
+
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.constraints import UniqueConstraint
+from django.utils.text import slugify
 
-from station_configs.settings import base as settings
+
+def station_image_file_path(instance, filename):
+    extension = pathlib.Path(filename).suffix
+    filename = f"{slugify(instance.name)}-{uuid.uuid4()}{extension}"
+
+    return pathlib.Path("uploads/stations/") / pathlib.Path(filename)
 
 
 class Station(models.Model):
     name = models.CharField(max_length=255)
     latitude = models.FloatField()
     longitude = models.FloatField()
+    image = models.ImageField(upload_to=station_image_file_path, null=True)
 
     def __str__(self):
         return self.name
