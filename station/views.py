@@ -72,6 +72,13 @@ class RouteViewSet(viewsets.ModelViewSet):
 class CrewViewSet(viewsets.ModelViewSet):
     queryset = Crew.objects.all()
     serializer_class = CrewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        permission_classes = self.permission_classes
+        if self.action in ("create", "destroy", "update", "partial_update"):
+            permission_classes = [IsAuthenticated, IsAdminUser]
+        return [permission() for permission in permission_classes]
 
 
 class TripViewSet(viewsets.ModelViewSet):
@@ -95,8 +102,8 @@ class TripViewSet(viewsets.ModelViewSet):
         if self.action == "list":
             queryset = queryset.annotate(
                 tickets_available=(
-                    F("train__cargo_num") * F("train__places_in_cargo")
-                    - Count("tickets")
+                        F("train__cargo_num") * F("train__places_in_cargo")
+                        - Count("tickets")
                 )
             )
 
