@@ -119,6 +119,31 @@ class Trip(models.Model):
     train = models.ForeignKey(Train, on_delete=models.CASCADE, related_name="trips")
     crews = models.ManyToManyField(Crew, related_name="trips")
 
+    @staticmethod
+    def validate_date(departure_time, arrival_time, error_to_raise):
+        if departure_time > arrival_time:
+            raise error_to_raise(
+                {"departure_time": "Departure time must be before arrival time."}
+            )
+
+    def clean(self):
+        Trip.validate_date(self.departure_time, self.arrival_time, ValidationError)
+
+    def save(
+            self,
+            force_insert=False,
+            force_update=False,
+            using=None,
+            update_fields=None
+    ):
+        self.full_clean()
+        return super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields
+        )
+
     class Meta:
         ordering = ("-departure_time",)
 

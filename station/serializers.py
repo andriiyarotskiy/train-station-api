@@ -105,10 +105,11 @@ class CrewSerializer(serializers.ModelSerializer):
 class TripSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         validated_data = super().validate(attrs)
-        if attrs["departure_time"] > attrs["arrival_time"]:
-            raise ValidationError(
-                {"departure_time": "Departure time must be before arrival time."}
-            )
+        Trip.validate_date(
+            attrs["departure_time"],
+            attrs["arrival_time"],
+            ValidationError,
+        )
         return validated_data
 
     class Meta:
