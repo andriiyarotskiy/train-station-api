@@ -93,7 +93,14 @@ class TrainDetailSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class TrainListSerializer(TrainSerializer):
+    url = serializers.HyperlinkedIdentityField(
+        view_name="station:train-detail", read_only=True
+    )
     train_type = serializers.CharField(source="train_type.name", read_only=True)
+
+    class Meta:
+        model = Train
+        fields = TrainSerializer.Meta.fields + ("url",)
 
 
 class CrewSerializer(serializers.ModelSerializer):
