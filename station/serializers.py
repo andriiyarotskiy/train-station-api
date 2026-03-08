@@ -15,6 +15,7 @@ class StationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Station
         fields = ("id", "name", "latitude", "longitude", "image")
+        read_only_fields = ("id", "image")
 
 
 class RouteSerializer(serializers.ModelSerializer):
