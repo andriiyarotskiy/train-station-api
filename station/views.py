@@ -1,3 +1,4 @@
+from datetime import datetime
 from django.db.models import Count, F
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet
 from rest_framework import viewsets, status
@@ -97,15 +98,26 @@ class TripViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = self.queryset
 
+        departure_day = self.request.query_params.get("departure_day")
+
         if self.action == "retrieve":
             queryset = queryset.prefetch_related("crews")
         if self.action == "list":
+
+            if departure_day is not None:
+                departure_dt = datetime.fromisoformat(
+                    departure_day.replace("Z", "+00:00")
+                )
+                queryset = queryset.filter(
+                    departure_time__date__lte=departure_dt.date()
+                )
+
             queryset = queryset.annotate(
                 tickets_available=(
-                        F("train__cargo_num") * F("train__places_in_cargo")
-                        - Count("tickets")
+                    F("train__cargo_num") * F("train__places_in_cargo")
+                    - Count("tickets")
                 )
-            )
+            ).distinct()
 
         return queryset
 

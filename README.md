@@ -48,7 +48,7 @@ Train Station API is a fully functional REST API that allows users to:
 ### Step 1: Clone and Setup Virtual Environment
 
 ```bash
-git clone https://github.com/yourusername/train-station-api.git
+git clone https://github.com/andriiyarotskiy/train-station-api.git
 cd train-station-api
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
@@ -254,17 +254,10 @@ curl -X GET http://127.0.0.1:8000/me/ \
 ### Filtering & Search
 
 ```bash
-# Filter trains by type
-GET /api/trains/?train_type=1
-
-# Filter routes by source and destination
-GET /api/routes/?source_id=1&destination_id=2
-
-# Filter trips by date
-GET /api/trips/?departure_date=2024-03-15
-
-# Pagination
-GET /api/trains/?page=1&page_size=10
+# Filter routes by distance
+GET /api/stations/routes/?min_distance=350&max_distance=500
+# Filter trips by departure day
+GET /api/station/trips/?departure_day=2026-03-20
 ```
 
 ### Serializers
