@@ -36,7 +36,7 @@ DEBUG_TOOLBAR_CONFIG = {
     "SQL_WARNING_THRESHOLD": 500,
 }
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+ALLOWED_HOSTS = ["*"]
 
 # Application definition
 
@@ -92,8 +92,12 @@ WSGI_APPLICATION = "station_configs.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "NAME": os.environ.get("DB_NAME", "station"),
+        "USER": os.environ.get("DB_USER", "station_user"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", "station_pass"),
+        "PORT": os.environ.get("DB_PORT", "5432"),
     }
 }
 
@@ -130,8 +134,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = "/vol/web/static"
 
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = "/vol/web/media"
 MEDIA_URL = "/media/"
 
 # Default primary key field type
@@ -142,9 +147,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "user.User"
 
 REST_FRAMEWORK = {
-    # "DEFAULT_PERMISSION_CLASSES": [
-    #     "rest_framework.permissions.IsAuthenticatedOrReadOnly"
-    # ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly"
+    ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -152,7 +157,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=6),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": False,
     "UPDATE_LAST_LOGIN": True,
