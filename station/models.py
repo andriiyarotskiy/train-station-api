@@ -1,3 +1,201 @@
-from django.db import models
+import pathlib
+import uuid
 
-# Create your models here.
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.db import models
+from django.db.models.constraints import UniqueConstraint
+from django.utils.text import slugify
+
+
+def station_image_file_path(instance, filename):
+    extension = pathlib.Path(filename).suffix
+    filename = f"{slugify(instance.name)}-{uuid.uuid4()}{extension}"
+
+    return pathlib.Path("uploads/stations/") / pathlib.Path(filename)
+
+
+class Station(models.Model):
+    name = models.CharField(max_length=255)
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    image = models.ImageField(upload_to=station_image_file_path, null=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Route(models.Model):
+    source = models.ForeignKey(
+        Station, on_delete=models.CASCADE, related_name="routes_from"
+    )
+    destination = models.ForeignKey(
+        Station, on_delete=models.CASCADE, related_name="routes_to"
+    )
+    distance = models.IntegerField()
+
+    @staticmethod
+    def validate_route(source_id, destination_id, station, error_to_raise):
+        if source_id == destination_id:
+            station_name = getattr(station, "name")
+            raise error_to_raise(
+                {
+                    "non_field_errors": f'The destination route "{station_name}" '
+                    f"cannot be the same as the source "
+                    f'"{station_name}"'
+                }
+            )
+
+    def clean(self):
+        Route.validate_route(
+            self.source.id, self.destination.id, self.source, ValidationError
+        )
+
+    def save(
+        self,
+        *args,
+        force_insert=False,
+        force_update=False,
+        using=None,
+        update_fields=None,
+    ):
+        self.full_clean()
+        return super().save(force_insert, force_update, using, update_fields)
+
+    def __str__(self):
+        return f"{self.source.name} -> {self.destination.name} ({self.distance}km)"
+
+
+class Order(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.created_at)
+
+
+class TrainType(models.Model):
+    name = models.CharField(max_length=63)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Train(models.Model):
+    name = models.CharField(max_length=255)
+    cargo_num = models.IntegerField()
+    places_in_cargo = models.IntegerField()
+    train_type = models.ForeignKey(
+        TrainType, on_delete=models.CASCADE, related_name="trains"
+    )
+
+    @property
+    def capacity(self):
+        return self.cargo_num * self.places_in_cargo
+
+    def __str__(self):
+        return self.name
+
+
+class Crew(models.Model):
+    first_name = models.CharField(max_length=255)
+    last_name = models.CharField(max_length=255)
+
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}"
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
+
+
+class Trip(models.Model):
+    departure_time = models.DateTimeField()
+    arrival_time = models.DateTimeField()
+    route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name="trips")
+    train = models.ForeignKey(Train, on_delete=models.CASCADE, related_name="trips")
+    crews = models.ManyToManyField(Crew, related_name="trips")
+
+    @staticmethod
+    def validate_date(departure_time, arrival_time, error_to_raise):
+        if departure_time > arrival_time:
+            raise error_to_raise(
+                {"departure_time": "Departure time must be before arrival time."}
+            )
+
+    def clean(self):
+        Trip.validate_date(self.departure_time, self.arrival_time, ValidationError)
+
+    def save(
+        self, force_insert=False, force_update=False, using=None, update_fields=None
+    ):
+        self.full_clean()
+        return super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
+
+    class Meta:
+        ordering = ("-departure_time",)
+
+    def __str__(self):
+        return f"{self.route} ({self.train})"
+
+
+class Ticket(models.Model):
+    cargo = models.IntegerField()
+    seat = models.IntegerField()
+    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name="tickets")
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="tickets")
+
+    class Meta:
+        constraints = (
+            UniqueConstraint(
+                fields=["cargo", "seat", "trip"], name="unique_ticket_in_trip"
+            ),
+        )
+        ordering = ("cargo", "seat")
+
+    @staticmethod
+    def validate_ticket(cargo, seat, train, error_to_raise):
+        for ticket_attr_value, ticket_attr_name, train_attr_name in [
+            (cargo, "cargo", "cargo_num"),
+            (seat, "seat", "places_in_cargo"),
+        ]:
+            count_attrs = getattr(train, train_attr_name)
+            if not (1 <= ticket_attr_value <= count_attrs):
+                raise error_to_raise(
+                    {
+                        ticket_attr_name: f"{ticket_attr_name} "
+                        f"number must be in available range: "
+                        f"(1, {train_attr_name}): "
+                        f"(1, {count_attrs})"
+                    }
+                )
+
+    def clean(self):
+        Ticket.validate_ticket(
+            self.cargo,
+            self.seat,
+            self.trip.train,
+            ValidationError,
+        )
+
+    def save(
+        self,
+        *args,
+        force_insert=False,
+        force_update=False,
+        using=None,
+        update_fields=None,
+    ):
+        self.full_clean()
+        return super().save(force_insert, force_update, using, update_fields)
+
+    def __str__(self):
+        return f"Cargo: {self.cargo}, Seat: {self.seat}"
